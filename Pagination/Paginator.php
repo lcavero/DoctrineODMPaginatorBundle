@@ -324,6 +324,13 @@ class Paginator
             $hasMoreIndex = 0;
         }
 
+        // Si es starting_after, ?starting_after= data[count(data)-1]; ?ending_before=data[0]
+        // Si es ending_before, ?ending_before=data[0], ?starting_after=data[count(data)-1]
+
+        if($skipData['entryDocumentDirection'] != self::ENDING_BEFORE) {
+//            $next_url = "?"
+        }
+
         return [
             'data' => $data,
             'total' => $total,
