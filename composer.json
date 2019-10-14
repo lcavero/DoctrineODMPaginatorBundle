@@ -1,0 +1,43 @@
+{
+    "name": "lcv/doctrine-odm-paginator-bundle",
+    "type": "symfony-bundle",
+    "description": "Simple paginator to Doctrine ODM",
+    "keywords": [
+        "paginator",
+        "paginate",
+        "pagination",
+        "doctrine",
+        "odm",
+        "mongo",
+        "mongodb",
+        "doctrine odm"
+    ],
+    "homepage": "https://github.com/lcavero/DoctrineODMPaginatorBundle",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Luis Cavero Martínez",
+            "email": "luiscaverodeveloper@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^7.2",
+        "doctrine/mongodb-odm-bundle": "~2.0",
+        "lcv/exception-pack-bundle": "^1.0",
+        "symfony/http-foundation": "~3.4|~4.0",
+        "symfony/framework-bundle": "~3.4|~4.0"
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "autoload": {
+        "psr-4": {
+            "LCV\\DoctrineODMPaginatorBundle\\": ""
+        }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "1.0.x-dev"
+        }
+    }
+}

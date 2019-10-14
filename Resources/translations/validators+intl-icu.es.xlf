@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+    <file source-language="en" target-language="es" datatype="plaintext" original="file.ext">
+        <body>
+            <trans-unit id="lcv.required">
+                <source>lcv.required</source>
+                <target>Este campo es requerido</target>
+            </trans-unit>
+
+            <trans-unit id="lcv.max_length_limit_mismatch">
+                <source>lcv.max_length_limit_mismatch</source>
+                <target>{limit, plural, one {Demasiado largo. El máximo es un carácter} other {Demasiado largo. El máximo son # caracteres}}</target>
+            </trans-unit>
+
+            <trans-unit id="lcv.min_length_limit_mismatch">
+                <source>lcv.min_length_limit_mismatch</source>
+                <target>{limit, plural, one {Demasiado corto. El mínimo es un carácter} other {Demasiado corto. El mínimo son # caracteres}}</target>
+            </trans-unit>
+
+            <trans-unit id="lcv.exactly_length_limit_mismatch">
+                <source>lcv.exactly_length_limit_mismatch</source>
+                <target>{limit, plural, one {Debe tener exactamente un carácter} other {Debe tener exactamente # caracteres}}</target>
+            </trans-unit>
+
+            <trans-unit id="lcv.charset_mismatch">
+                <source>lcv.charset_mismatch</source>
+                <target>Este valor no coincide con el formato esperado, se esperaba un {{ charset }}</target>
+            </trans-unit>
+
+            <trans-unit id="lcv.invalid_email">
+                <source>lcv.invalid_email</source>
+                <target>No es un email válido</target>
+            </trans-unit>
+
+            <trans-unit id="lcv.invalid_phone">
+                <source>lcv.invalid_phone</source>
+                <target>No es un número de teléfono válido</target>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>
