@@ -22,7 +22,7 @@
     ],
     "require": {
         "php": "^7.2",
-        "doctrine/mongodb-odm-bundle": "~2.0",
+        "doctrine/mongodb-odm-bundle": "~4.0",
         "lcv/exception-pack-bundle": "^1.0",
         "symfony/http-foundation": "~3.4|~4.0",
         "symfony/framework-bundle": "~3.4|~4.0"

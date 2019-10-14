@@ -1,0 +1,5 @@
+services:
+  lcv.paginator:
+    class: LCV\DoctrineODMPaginatorBundle\Pagination\Paginator
+    arguments: ["@doctrine_mongodb", "@request_stack", "",
+                "", "", ""]

@@ -2,47 +2,74 @@
 
 namespace LCV\DoctrineODMPaginatorBundle\Pagination;
 
-use Doctrine\ODM\MongoDB\Mapping\ClassMetadata;
-use Doctrine\ODM\MongoDB\Query\Builder;
+use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\ODM\MongoDB\DocumentManager;
+use Doctrine\ODM\MongoDB\Mapping\ClassMetadata;
+use Doctrine\ODM\MongoDB\MongoDBException;
+use Doctrine\ODM\MongoDB\Query\Builder;
 use LCV\ExceptionPackBundle\Exception\ApiException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 class Paginator
 {
-    const NO_SKIP = 0;
-    const STARTING_AFTER = 1;
-    const ENDING_BEFORE = 2;
+    // TODO devolver también como atributos, la url del next y previous
 
+    // Skip constants
+    const NO_SKIP = 0; // First page, or not pagination
+    const STARTING_AFTER = 1; // "Next" direction
+    const ENDING_BEFORE = 2; // "Previous" direction
+
+    /** @var DocumentManager $dm */
     private $dm;
 
-    private $orderConfig;
+    /** @var ManagerRegistry $registry */
+    private $registry;
+
+    private $sortConfig;
     private $paginationConfig;
     private $softDeletedKey;
 
     /** @var Request $request */
     private $request;
 
+    /**
+     * Paginator constructor.
+     * @param ManagerRegistry $registry
+     * @param RequestStack $requestStack
+     * @param $sortConfig
+     * @param $paginationConfig
+     * @param $softDeletedKey
+     */
     public function __construct(
-        DocumentManager $manager,
+        ManagerRegistry $registry,
         RequestStack $requestStack,
-        $orderConfig,
+        $sortConfig,
         $paginationConfig,
         $softDeletedKey
     )
     {
-        $this->dm = $manager;
+        $this->registry = $registry;
         $this->request = $requestStack->getCurrentRequest();
-        $this->orderConfig = $orderConfig;
+        $this->sortConfig = $sortConfig;
         $this->paginationConfig = $paginationConfig;
         $this->softDeletedKey = $softDeletedKey;
     }
 
+    /**
+     * @param $document
+     */
+    private function configureManager($document)
+    {
+        $this->dm = $this->registry->getManagerForClass($document);
+    }
 
-    // ['-1', 'desc', 'DESC', 'descendent', 'DESCENDENT']
-
-
+    /**
+     * @param $field
+     * @param ClassMetadata $metadata
+     * @param $forbiddenFields
+     * @return bool
+     */
     public function validateSortField($field, ClassMetadata $metadata, $forbiddenFields)
     {
         if (!$field) {
@@ -60,6 +87,12 @@ class Paginator
         return true;
     }
 
+    /**
+     * @param Builder $qb
+     * @param ClassMetadata $metadata
+     * @param $field
+     * @param $value
+     */
     private function applyFilter(Builder $qb, ClassMetadata $metadata, $field, $value)
     {
         if (!$metadata->hasField($field) && !$metadata->hasAssociation($field)) {
@@ -76,6 +109,9 @@ class Paginator
         }
     }
 
+    /**
+     * @param Builder $qb
+     */
     private function applyLimit(Builder $qb)
     {
         $limit = $this->request->query->get($this->paginationConfig['limit_key']);
@@ -85,6 +121,10 @@ class Paginator
         }
     }
 
+    /**
+     * @param ClassMetadata $metadata
+     * @return array
+     */
     public function getSkipData(ClassMetadata $metadata)
     {
         $entryDocument = null;
@@ -112,10 +152,16 @@ class Paginator
         return ['entryDocumentDirection' => $entryDocumentDirection, 'entryDocument' => $entryDocument];
     }
 
+    /**
+     * @param $metadata
+     * @param $forbiddenFields
+     * @param $entryDocumentDirection
+     * @return array
+     */
     public function getSortData($metadata, $forbiddenFields, $entryDocumentDirection)
     {
         // Order By
-        $order_by = $this->request->query->get($this->orderConfig['order_by_key']);
+        $order_by = $this->request->query->get($this->sortConfig['order_by_key']);
 
         $isValidOrderBy = $this->validateSortField($order_by, $metadata, $forbiddenFields);
 
@@ -124,8 +170,8 @@ class Paginator
         }
 
         // Order
-        $order = $this->request->query->get($this->paginationConfig['order_key']);
-        if (in_array($order, $this->orderConfig['descendant_values'])) {
+        $order = $this->request->query->get($this->sortConfig['order_key']);
+        if (in_array($order, $this->sortConfig['descendant_values'])) {
             $order = 'desc';
         } else {
             $order = 'asc';
@@ -139,6 +185,11 @@ class Paginator
         return ['order' => $order, 'order_by' => $order_by];
     }
 
+    /**
+     * @param Builder $qb
+     * @param $order_by
+     * @param $order
+     */
     public function applySort(Builder $qb, $order_by, $order)
     {
         if ($order_by != 'id') {
@@ -148,6 +199,12 @@ class Paginator
         $qb->sort('id', $order);
     }
 
+    /**
+     * @param Builder $qb
+     * @param $order_by
+     * @param $order
+     * @return array|object|null
+     */
     public function getLastDocument(Builder $qb, $order_by, $order)
     {
         $clone = clone $qb;
@@ -167,8 +224,17 @@ class Paginator
     }
 
 
+    /**
+     * @param $document
+     * @param array $filters
+     * @param array $forbiddenSortFields
+     * @param bool $excludeDeleted
+     * @return array
+     * @throws MongoDBException
+     */
     public function simplePaginate($document, $filters = [], $forbiddenSortFields = [], $excludeDeleted = true)
     {
+        $this->configureManager($document);
         $metadata = $this->dm->getClassMetadata($document);
 
         // Create Query Builder
@@ -182,9 +248,17 @@ class Paginator
         return $this->paginate($qb, $forbiddenSortFields, $excludeDeleted);
     }
 
+    /**
+     * @param Builder $qb
+     * @param array $forbiddenSortFields
+     * @param bool $excludeDeleted
+     * @return array
+     * @throws MongoDBException
+     */
     public function paginate(Builder $qb, $forbiddenSortFields = [], $excludeDeleted = true)
     {
         $metadata = $qb->getQuery()->getClass();
+        $this->configureManager($metadata->getName());
 
         // Reflection id. Reflection allow property access without depends of the get method availability
         $reflectionId = $metadata->getReflectionProperty('id');
@@ -239,9 +313,6 @@ class Paginator
 
         // Apply Sort
         $this->applySort($qb, $orders['order_by'], $orders['order']);
-
-        // Eager cursor returns a numeric array instead of an associative array
-        $qb->eagerCursor(true);
 
         $data = $qb->find()->getQuery()->execute()->toArray();
 
