@@ -36,7 +36,7 @@ class Configuration implements ConfigurationInterface
                     ->children()
                         ->scalarNode('limit_key')->defaultValue('limit')->end()
                         ->scalarNode('starting_after_key')->defaultValue('starting_after')->end()
-                        ->scalarNode('ending_before')->defaultValue('ending_before')->end()
+                        ->scalarNode('ending_before_key')->defaultValue('ending_before')->end()
 
                     ->end()
                 ->end()

@@ -283,7 +283,11 @@ class Paginator
         );
 
         // Last document
-        $lastDocument = $this->getLastDocument($qb, $orders['order_by'], $orders['order']);
+        $lastDocument = null;
+        if($total > 0){
+            $lastDocument = $this->getLastDocument($qb, $orders['order_by'], $orders['order']);
+        }
+
 
         // Skip
         if ($skipData['entryDocumentDirection'] != self::NO_SKIP) {
@@ -337,7 +341,7 @@ class Paginator
         return [
             'data' => $data,
             'total' => $total,
-            'has_more' => ($reflectionId->getValue($lastDocument) != $reflectionId->getValue($data[$hasMoreIndex]))
+            'has_more' => $lastDocument ? ($reflectionId->getValue($lastDocument) != $reflectionId->getValue($data[$hasMoreIndex])): false
         ];
     }
 }
