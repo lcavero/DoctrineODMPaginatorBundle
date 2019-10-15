@@ -27,7 +27,7 @@ class DoctrineODMPaginatorExtension extends Extension
 
         $configuration = new Configuration();
         $config = $this->processConfiguration($configuration, $configs);
-        $definition = $container->getDefinition('lcv.paginator');
+        $definition = $container->getDefinition('LCV\DoctrineODMPaginatorBundle\Pagination\Paginator');
         $definition->replaceArgument(2, $config['sort_options']);
         $definition->replaceArgument(3, $config['pagination_options']);
         $definition->replaceArgument(4, $config['soft_delete_key']);
