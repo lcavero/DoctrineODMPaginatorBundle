@@ -23,9 +23,10 @@
     "require": {
         "php": "^7.2",
         "doctrine/mongodb-odm-bundle": "~4.0",
+        "gesdinet/jwt-refresh-token-bundle": "^0.8.2",
         "lcv/exception-pack-bundle": "^1.0",
-        "symfony/http-foundation": "~3.4|~4.0",
-        "symfony/framework-bundle": "~3.4|~4.0"
+        "symfony/framework-bundle": "~3.4|~4.0",
+        "symfony/http-foundation": "~3.4|~4.0"
     },
     "config": {
         "sort-packages": true

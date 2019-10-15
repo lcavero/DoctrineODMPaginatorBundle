@@ -24,6 +24,7 @@ class DoctrineODMPaginatorExtension extends Extension
             new FileLocator(__DIR__.'/../Resources/config')
         );
         $loader->load('services.yaml');
+
         $configuration = new Configuration();
         $config = $this->processConfiguration($configuration, $configs);
         $definition = $container->getDefinition('lcv.paginator');

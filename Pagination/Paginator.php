@@ -328,6 +328,9 @@ class Paginator
         // Si es ending_before, ?ending_before=data[0], ?starting_after=data[count(data)-1]
 
         if($skipData['entryDocumentDirection'] != self::ENDING_BEFORE) {
+//            $url = $actual_link = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
+//
+//            $nextUrl = $url
 //            $next_url = "?"
         }
 
