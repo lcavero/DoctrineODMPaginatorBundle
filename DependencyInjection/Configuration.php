@@ -27,7 +27,10 @@ class Configuration implements ConfigurationInterface
                     ->children()
                         ->scalarNode('order_key')->defaultValue('order')->end()
                         ->scalarNode('order_by_key')->defaultValue('order_by')->end()
-                        ->arrayNode('descendant_values')->scalarPrototype()->defaultValue(['-1', 'desc', 'DESC', 'descendent', 'DESCENDENT'])->end()->end()
+                        ->arrayNode('descendant_values')
+                            ->scalarPrototype()->end()
+                            ->defaultValue(['-1', 'desc', 'DESC', 'descendent', 'DESCENDENT'])
+                        ->end()
                     ->end()
                 ->end()
 

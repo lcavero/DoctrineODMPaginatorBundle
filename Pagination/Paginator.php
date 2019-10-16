@@ -171,6 +171,7 @@ class Paginator
 
         // Order
         $order = $this->request->query->get($this->sortConfig['order_key']);
+
         if (in_array($order, $this->sortConfig['descendant_values'])) {
             $order = 'desc';
         } else {
@@ -199,13 +200,28 @@ class Paginator
         $qb->sort('id', $order);
     }
 
+    public function getFirstDocument(Builder $qb, $order_by, $order, $entryDocumentDirection)
+    {
+        $clone = clone $qb;
+
+        $clone->limit(1);
+
+        if ($order_by != 'id') {
+            $clone->sort($order_by, $order);
+        }
+        // Second order_by to pagination
+        $clone->sort('id', $order);
+
+        return $clone->find()->getQuery()->getSingleResult();
+    }
+
     /**
      * @param Builder $qb
      * @param $order_by
      * @param $order
      * @return array|object|null
      */
-    public function getLastDocument(Builder $qb, $order_by, $order)
+    public function getLastDocument(Builder $qb, $order_by, $order, $entryDocumentDirection)
     {
         $clone = clone $qb;
 
@@ -221,6 +237,122 @@ class Paginator
         $clone->sort('id', $order);
 
         return $clone->find()->getQuery()->getSingleResult();
+    }
+
+    private function getPaginationUrls($data, $hasLimit, $entryDocumentDirecction, $isFirst, $isLast)
+    {
+        $paginationUrls = [];
+        $url = $this->request->getSchemeAndHttpHost() . $this->request->getPathInfo();
+        $first = true;
+
+        if(!empty($data)){
+            foreach ($this->request->query->all() as $key => $value){
+
+                if(($key == $this->paginationConfig['starting_after_key']) || ($key == $this->paginationConfig['ending_before_key'])){
+                    continue;
+
+                }
+
+                if(is_array($value)) {
+                    foreach ($value as $k => $v) {
+                        $url .= (($first) ? '?' : '&') . $key . "[$k]=" . $v;
+                    }
+
+                }else if(is_object($value)) {
+                    $url .= (($first) ? '?' : '&') . $key . '=' . $value->getId();
+                }else{
+                    $url .= (($first) ? '?' : '&') . $key . '=' . $value;
+                }
+
+                $first = false;
+            }
+
+            // NO SKIP AND LIMIT
+            if($entryDocumentDirecction == self::NO_SKIP && $hasLimit){
+                $paginationUrls['nextUrl'] = $url . '&' . $this->paginationConfig['starting_after_key'] . '=' . $data[count($data) - 1]->getId();
+            }
+
+            if($entryDocumentDirecction == self::STARTING_AFTER){
+                if($hasLimit && !$isLast){
+                    $paginationUrls['nextUrl'] = $url . '&' . $this->paginationConfig['starting_after_key'] . '=' . $data[count($data) - 1]->getId();
+                }
+                if(!$isFirst){
+                    $paginationUrls['prevUrl'] = $url . '&' . $this->paginationConfig['ending_before_key'] . '=' . $data[0]->getId();
+                }
+            }
+
+            if($entryDocumentDirecction == self::ENDING_BEFORE) {
+                if($hasLimit && !$isFirst) {
+                    $paginationUrls['prevUrl'] = $url . '&' . $this->paginationConfig['ending_before_key'] . '=' . $data[0]->getId();
+                }
+
+                if(!$isLast){
+                    $paginationUrls['nextUrl'] = $url . '&' . $this->paginationConfig['starting_after_key'] . '=' . $data[count($data) - 1]->getId();
+                }
+            }
+        }
+        return $paginationUrls;
+    }
+
+
+
+    public function provideNextData($data, \ReflectionProperty $reflectionId, $entryDocumentDirection, $firstDocument, $lastDocument)
+    {
+        $result = ['has_next' => false, 'has_prev' => false];
+        $isLast = true;
+        $isFirst = false;
+        if(!empty($data)){
+
+            if($entryDocumentDirection == self::ENDING_BEFORE){
+                if($firstDocument != null){
+                    $firstDataDocumentIndex = count($data) - 1;
+
+                    if($reflectionId->getValue($firstDocument) != $reflectionId->getValue($data[$firstDataDocumentIndex])){
+                        $result['has_next'] = true;
+
+                    }
+                }
+
+                if($lastDocument != null){
+                    $lastDataDocumentIndex =  0 ;
+                    if($reflectionId->getValue($lastDocument) != $reflectionId->getValue($data[$lastDataDocumentIndex])){
+                        $result['has_prev'] = true;
+                    }
+                }
+            }else{
+                if($lastDocument != null){
+                    $lastDataDocumentIndex = count($data) - 1;
+                    if($reflectionId->getValue($lastDocument) != $reflectionId->getValue($data[$lastDataDocumentIndex])){
+                        $result['has_next'] = true;
+
+                    }
+                }
+
+                if($firstDocument != null){
+                    $firstDataDocumentIndex =  0 ;
+                    if($reflectionId->getValue($firstDocument) != $reflectionId->getValue($data[$firstDataDocumentIndex])){
+                        $result['has_prev'] = true;
+                    }
+                }
+            }
+
+
+
+            $has_limit = $this->request->query->has($this->paginationConfig['limit_key']);
+
+            $paginationUrls = $this->getPaginationUrls(
+                $data,
+                $has_limit,
+                $entryDocumentDirection,
+                !$result['has_prev'],
+                !$result['has_next']
+            );
+
+            if(isset($paginationUrls['nextUrl'])) $result['nextUrl'] = $paginationUrls['nextUrl'];
+            if(isset($paginationUrls['prevUrl'])) $result['prevUrl'] = $paginationUrls['prevUrl'];
+        }
+
+        return $result;
     }
 
 
@@ -257,91 +389,101 @@ class Paginator
      */
     public function paginate(Builder $qb, $forbiddenSortFields = [], $excludeDeleted = true)
     {
-        $metadata = $qb->getQuery()->getClass();
-        $this->configureManager($metadata->getName());
+        try{
+            $metadata = $qb->getQuery()->getClass();
+            $this->configureManager($metadata->getName());
 
-        // Reflection id. Reflection allow property access without depends of the get method availability
-        $reflectionId = $metadata->getReflectionProperty('id');
-        $reflectionId->setAccessible(true);
+            // Reflection id. Reflection allow property access without depends of the get method availability
+            $reflectionId = $metadata->getReflectionProperty('id');
+            $reflectionId->setAccessible(true);
 
-        // Soft delete
-        if ($excludeDeleted) {
-            $qb->addAnd($qb->expr()->field($this->softDeletedKey)->notEqual(true));
-        }
+            // Soft delete
+            if ($excludeDeleted) {
+                $qb->addAnd($qb->expr()->field($this->softDeletedKey)->equals(null));
+            }else {
+                $this->dm->getFilterCollection()->disable('soft_delete');
+            }
 
-        // Total count
-        $total = $qb->count()->getQuery()->execute();
+            // Total count
+            $total = $qb->count()->getQuery()->execute();
 
-        // Get Skip Data
-        $skipData = $this->getSkipData($metadata);
-
-        // Get Sort Data
-        $orders = $this->getSortData(
-            $metadata,
-            $forbiddenSortFields,
-            $skipData['entryDocumentDirection']
-        );
-
-        // Last document
-        $lastDocument = null;
-        if($total > 0){
-            $lastDocument = $this->getLastDocument($qb, $orders['order_by'], $orders['order']);
-        }
+            // Get Skip Data
+            $skipData = $this->getSkipData($metadata);
 
 
-        // Skip
-        if ($skipData['entryDocumentDirection'] != self::NO_SKIP) {
-            // Reflection OrderBy
-            $reflectionSort = $metadata->getReflectionProperty($orders['order_by']);
-            $reflectionSort->setAccessible(true);
-
-            $reflectionSortValue = $reflectionSort->getValue($skipData['entryDocument']);
-
-            $reflectionIdValue = $reflectionId->getValue($skipData['entryDocument']);
-
-            $orderFunction = ($orders['order'] == 'asc') ? 'gt' : 'lt';
-
-            $qb->addAnd(
-                $qb->expr()->addOr(
-                    $qb->expr()->addAnd(
-                        $qb->expr()->field($orders['order_by'])->equals($reflectionSortValue),
-                        $qb->expr()->field('id')->$orderFunction($reflectionIdValue)
-                    ),
-                    $qb->expr()->addAnd($qb->expr()->field($orders['order_by'])->$orderFunction($reflectionSortValue))
-                )
+            // Get Sort Data
+            $orders = $this->getSortData(
+                $metadata,
+                $forbiddenSortFields,
+                $skipData['entryDocumentDirection']
             );
+
+            // First and Last documents
+            $firstDocument = null;
+            $lastDocument = null;
+            if($total > 0){
+                $firstDocument = $this->getFirstDocument($qb, $orders['order_by'], $orders['order'], $skipData['entryDocumentDirection']);
+                $lastDocument = $this->getLastDocument($qb, $orders['order_by'], $orders['order'], $skipData['entryDocumentDirection']);
+            }
+
+
+            // Skip
+            if ($skipData['entryDocumentDirection'] != self::NO_SKIP) {
+                // Reflection OrderBy
+                $reflectionSort = $metadata->getReflectionProperty($orders['order_by']);
+                $reflectionSort->setAccessible(true);
+
+                $reflectionSortValue = $reflectionSort->getValue($skipData['entryDocument']);
+
+                $reflectionIdValue = $reflectionId->getValue($skipData['entryDocument']);
+
+                $orderFunction = ($orders['order'] == 'asc') ? 'gt' : 'lt';
+
+                $qb->addAnd(
+                    $qb->expr()->addOr(
+                        $qb->expr()->addAnd(
+                            $qb->expr()->field($orders['order_by'])->equals($reflectionSortValue),
+                            $qb->expr()->field('id')->$orderFunction($reflectionIdValue)
+                        ),
+                        $qb->expr()->addAnd($qb->expr()->field($orders['order_by'])->$orderFunction($reflectionSortValue))
+                    )
+                );
+            }
+
+            // Limit
+            $this->applyLimit($qb);
+
+            // Apply Sort
+            $this->applySort($qb, $orders['order_by'], $orders['order']);
+
+            $data = $qb->find()->getQuery()->execute()->toArray();
+
+            // Ending_before needs reverse the array
+            if ($skipData['entryDocumentDirection'] == self::ENDING_BEFORE) {
+                $data = array_reverse($data);
+            }
+
+
+            $nextData = $this->provideNextData($data, $reflectionId, $skipData['entryDocumentDirection'], $firstDocument, $lastDocument);
+
+            $returnStructure = [
+                'data' => $data,
+                'total' => $total,
+                'has_next' => $nextData['has_next'],
+                'has_prev' => $nextData['has_prev']
+            ];
+
+            if(isset($nextData['nextUrl'])) $returnStructure['next_url'] = $nextData['nextUrl'];
+            if(isset($nextData['prevUrl'])) $returnStructure['prev_url'] = $nextData['prevUrl'];
+
+
+            return $returnStructure;
+        }catch (\Exception $e){
+            throw $e;
+        }finally{
+            if(!$excludeDeleted){
+                $this->dm->getFilterCollection()->enable('soft_delete');
+            }
         }
-
-        // Limit
-        $this->applyLimit($qb);
-
-        // Apply Sort
-        $this->applySort($qb, $orders['order_by'], $orders['order']);
-
-        $data = $qb->find()->getQuery()->execute()->toArray();
-
-        $hasMoreIndex = count($data) - 1;
-
-        // Ending_before needs reverse the array
-        if ($skipData['entryDocumentDirection'] == self::ENDING_BEFORE) {
-            $data = array_reverse($data);
-            $hasMoreIndex = 0;
-        }
-
-        // Si es starting_after, ?starting_after= data[count(data)-1]; ?ending_before=data[0]
-        // Si es ending_before, ?ending_before=data[0], ?starting_after=data[count(data)-1]
-
-        if($skipData['entryDocumentDirection'] != self::ENDING_BEFORE) {
-//            $url = $actual_link = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
-//
-//            $nextUrl = $url
-//            $next_url = "?"
-        }
-
-        return [
-            'data' => $data,
-            'total' => $total,
-            'has_more' => $lastDocument ? ($reflectionId->getValue($lastDocument) != $reflectionId->getValue($data[$hasMoreIndex])): false
-        ];
     }
 }
