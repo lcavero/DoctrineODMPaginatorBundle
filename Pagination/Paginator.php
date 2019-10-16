@@ -200,7 +200,7 @@ class Paginator
         $qb->sort('id', $order);
     }
 
-    public function getFirstDocument(Builder $qb, $order_by, $order, $entryDocumentDirection)
+    public function getFirstDocument(Builder $qb, $order_by, $order)
     {
         $clone = clone $qb;
 
@@ -221,7 +221,7 @@ class Paginator
      * @param $order
      * @return array|object|null
      */
-    public function getLastDocument(Builder $qb, $order_by, $order, $entryDocumentDirection)
+    public function getLastDocument(Builder $qb, $order_by, $order)
     {
         $clone = clone $qb;
 
@@ -299,8 +299,6 @@ class Paginator
     public function provideNextData($data, \ReflectionProperty $reflectionId, $entryDocumentDirection, $firstDocument, $lastDocument)
     {
         $result = ['has_next' => false, 'has_prev' => false];
-        $isLast = true;
-        $isFirst = false;
         if(!empty($data)){
 
             if($entryDocumentDirection == self::ENDING_BEFORE){
@@ -335,8 +333,6 @@ class Paginator
                     }
                 }
             }
-
-
 
             $has_limit = $this->request->query->has($this->paginationConfig['limit_key']);
 
@@ -389,101 +385,92 @@ class Paginator
      */
     public function paginate(Builder $qb, $forbiddenSortFields = [], $excludeDeleted = true)
     {
-        try{
-            $metadata = $qb->getQuery()->getClass();
-            $this->configureManager($metadata->getName());
 
-            // Reflection id. Reflection allow property access without depends of the get method availability
-            $reflectionId = $metadata->getReflectionProperty('id');
-            $reflectionId->setAccessible(true);
+        $metadata = $qb->getQuery()->getClass();
+        $this->configureManager($metadata->getName());
 
-            // Soft delete
-            if ($excludeDeleted) {
-                $qb->addAnd($qb->expr()->field($this->softDeletedKey)->equals(null));
-            }else {
-                $this->dm->getFilterCollection()->disable('soft_delete');
-            }
+        // Reflection id. Reflection allow property access without depends of the get method availability
+        $reflectionId = $metadata->getReflectionProperty('id');
+        $reflectionId->setAccessible(true);
 
-            // Total count
-            $total = $qb->count()->getQuery()->execute();
-
-            // Get Skip Data
-            $skipData = $this->getSkipData($metadata);
-
-
-            // Get Sort Data
-            $orders = $this->getSortData(
-                $metadata,
-                $forbiddenSortFields,
-                $skipData['entryDocumentDirection']
-            );
-
-            // First and Last documents
-            $firstDocument = null;
-            $lastDocument = null;
-            if($total > 0){
-                $firstDocument = $this->getFirstDocument($qb, $orders['order_by'], $orders['order'], $skipData['entryDocumentDirection']);
-                $lastDocument = $this->getLastDocument($qb, $orders['order_by'], $orders['order'], $skipData['entryDocumentDirection']);
-            }
-
-
-            // Skip
-            if ($skipData['entryDocumentDirection'] != self::NO_SKIP) {
-                // Reflection OrderBy
-                $reflectionSort = $metadata->getReflectionProperty($orders['order_by']);
-                $reflectionSort->setAccessible(true);
-
-                $reflectionSortValue = $reflectionSort->getValue($skipData['entryDocument']);
-
-                $reflectionIdValue = $reflectionId->getValue($skipData['entryDocument']);
-
-                $orderFunction = ($orders['order'] == 'asc') ? 'gt' : 'lt';
-
-                $qb->addAnd(
-                    $qb->expr()->addOr(
-                        $qb->expr()->addAnd(
-                            $qb->expr()->field($orders['order_by'])->equals($reflectionSortValue),
-                            $qb->expr()->field('id')->$orderFunction($reflectionIdValue)
-                        ),
-                        $qb->expr()->addAnd($qb->expr()->field($orders['order_by'])->$orderFunction($reflectionSortValue))
-                    )
-                );
-            }
-
-            // Limit
-            $this->applyLimit($qb);
-
-            // Apply Sort
-            $this->applySort($qb, $orders['order_by'], $orders['order']);
-
-            $data = $qb->find()->getQuery()->execute()->toArray();
-
-            // Ending_before needs reverse the array
-            if ($skipData['entryDocumentDirection'] == self::ENDING_BEFORE) {
-                $data = array_reverse($data);
-            }
-
-
-            $nextData = $this->provideNextData($data, $reflectionId, $skipData['entryDocumentDirection'], $firstDocument, $lastDocument);
-
-            $returnStructure = [
-                'data' => $data,
-                'total' => $total,
-                'has_next' => $nextData['has_next'],
-                'has_prev' => $nextData['has_prev']
-            ];
-
-            if(isset($nextData['nextUrl'])) $returnStructure['next_url'] = $nextData['nextUrl'];
-            if(isset($nextData['prevUrl'])) $returnStructure['prev_url'] = $nextData['prevUrl'];
-
-
-            return $returnStructure;
-        }catch (\Exception $e){
-            throw $e;
-        }finally{
-            if(!$excludeDeleted){
-                $this->dm->getFilterCollection()->enable('soft_delete');
-            }
+        // Soft delete
+        if ($excludeDeleted) {
+            $qb->addAnd($qb->expr()->field($this->softDeletedKey)->equals(null));
         }
+
+        // Total count
+        $total = $qb->count()->getQuery()->execute();
+
+        // Get Skip Data
+        $skipData = $this->getSkipData($metadata);
+
+
+        // Get Sort Data
+        $orders = $this->getSortData(
+            $metadata,
+            $forbiddenSortFields,
+            $skipData['entryDocumentDirection']
+        );
+
+        // First and Last documents
+        $firstDocument = null;
+        $lastDocument = null;
+        if($total > 0){
+            $firstDocument = $this->getFirstDocument($qb, $orders['order_by'], $orders['order']);
+            $lastDocument = $this->getLastDocument($qb, $orders['order_by'], $orders['order']);
+        }
+
+
+        // Skip
+        if ($skipData['entryDocumentDirection'] != self::NO_SKIP) {
+            // Reflection OrderBy
+            $reflectionSort = $metadata->getReflectionProperty($orders['order_by']);
+            $reflectionSort->setAccessible(true);
+
+            $reflectionSortValue = $reflectionSort->getValue($skipData['entryDocument']);
+
+            $reflectionIdValue = $reflectionId->getValue($skipData['entryDocument']);
+
+            $orderFunction = ($orders['order'] == 'asc') ? 'gt' : 'lt';
+
+            $qb->addAnd(
+                $qb->expr()->addOr(
+                    $qb->expr()->addAnd(
+                        $qb->expr()->field($orders['order_by'])->equals($reflectionSortValue),
+                        $qb->expr()->field('id')->$orderFunction($reflectionIdValue)
+                    ),
+                    $qb->expr()->addAnd($qb->expr()->field($orders['order_by'])->$orderFunction($reflectionSortValue))
+                )
+            );
+        }
+
+        // Limit
+        $this->applyLimit($qb);
+
+        // Apply Sort
+        $this->applySort($qb, $orders['order_by'], $orders['order']);
+
+        $data = $qb->find()->getQuery()->execute()->toArray();
+
+        // Ending_before needs reverse the array
+        if ($skipData['entryDocumentDirection'] == self::ENDING_BEFORE) {
+            $data = array_reverse($data);
+        }
+
+
+        $nextData = $this->provideNextData($data, $reflectionId, $skipData['entryDocumentDirection'], $firstDocument, $lastDocument);
+
+        $returnStructure = [
+            'data' => $data,
+            'total' => $total,
+            'has_next' => $nextData['has_next'],
+            'has_prev' => $nextData['has_prev']
+        ];
+
+        if(isset($nextData['nextUrl'])) $returnStructure['next_url'] = $nextData['nextUrl'];
+        if(isset($nextData['prevUrl'])) $returnStructure['prev_url'] = $nextData['prevUrl'];
+
+
+        return $returnStructure;
     }
 }
