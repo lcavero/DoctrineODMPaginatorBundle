@@ -13,8 +13,6 @@ use Symfony\Component\HttpFoundation\RequestStack;
 
 class Paginator
 {
-    // TODO devolver también como atributos, la url del next y previous
-
     // Skip constants
     const NO_SKIP = 0; // First page, or not pagination
     const STARTING_AFTER = 1; // "Next" direction
@@ -96,8 +94,7 @@ class Paginator
     private function applyFilter(Builder $qb, ClassMetadata $metadata, $field, $value)
     {
         if (!$metadata->hasField($field) && !$metadata->hasAssociation($field)) {
-            // TODO
-            throw new ApiException(500, 'Invalid filter, field or association not found in entity');
+            throw new ApiException(500, 'lcv.invalid_pagination_filter', ['filter' => $field, 'document' => $metadata->getName()]);
         }
 
         if ($metadata->hasField($field)) {
@@ -143,7 +140,7 @@ class Paginator
 
             $entryDocument = $this->dm->find($metadata->getName(), $entryDocumentId);
             if (!$entryDocument) {
-                throw new ApiException(500, "No Entry document found");
+                throw new ApiException(500, 'lcv.document_not_found', ['id' => $entryDocumentId]);
             }
         } else {
             $entryDocumentDirection = self::NO_SKIP;
