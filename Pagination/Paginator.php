@@ -102,7 +102,7 @@ class Paginator
             $qb->addAnd($qb->expr()->field($field)->equals($value));
         } else {
             // Association
-            $qb->addAnd($qb->expr()->references($value));
+            $qb->addAnd($qb->expr()->field($field)->references($value));
         }
     }
 
