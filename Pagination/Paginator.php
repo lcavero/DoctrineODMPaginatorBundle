@@ -253,6 +253,7 @@ class Paginator
                 if(is_array($value)) {
                     foreach ($value as $k => $v) {
                         $url .= (($first) ? '?' : '&') . $key . "[$k]=" . $v;
+                        $first = false;
                     }
 
                 }else if(is_object($value)) {
