@@ -91,7 +91,7 @@ class AggregationPaginator
         $limit = $this->request->query->get($this->paginationConfig['limit_key']);
 
         if ($limit) {
-            $aggregation[] = ['$limit' => $limit];
+            $aggregation[] = ['$limit' => intval($limit)];
         }
     }
 
@@ -205,25 +205,25 @@ class AggregationPaginator
 
             // NO SKIP AND LIMIT
             if($entryDocumentDirecction == self::NO_SKIP && $hasLimit){
-                $paginationUrls['nextUrl'] = $url . '&' . $this->paginationConfig['starting_after_key'] . '=' . $data[count($data) - 1]->getId();
+                $paginationUrls['nextUrl'] = $url . '&' . $this->paginationConfig['starting_after_key'] . '=' . $data[count($data) - 1]['id'];
             }
 
             if($entryDocumentDirecction == self::STARTING_AFTER){
                 if($hasLimit && !$isLast){
-                    $paginationUrls['nextUrl'] = $url . '&' . $this->paginationConfig['starting_after_key'] . '=' . $data[count($data) - 1]->getId();
+                    $paginationUrls['nextUrl'] = $url . '&' . $this->paginationConfig['starting_after_key'] . '=' . $data[count($data) - 1]['id'];
                 }
                 if(!$isFirst){
-                    $paginationUrls['prevUrl'] = $url . '&' . $this->paginationConfig['ending_before_key'] . '=' . $data[0]->getId();
+                    $paginationUrls['prevUrl'] = $url . '&' . $this->paginationConfig['ending_before_key'] . '=' . $data[0]['id'];
                 }
             }
 
             if($entryDocumentDirecction == self::ENDING_BEFORE) {
                 if($hasLimit && !$isFirst) {
-                    $paginationUrls['prevUrl'] = $url . '&' . $this->paginationConfig['ending_before_key'] . '=' . $data[0]->getId();
+                    $paginationUrls['prevUrl'] = $url . '&' . $this->paginationConfig['ending_before_key'] . '=' . $data[0]['id'];
                 }
 
                 if(!$isLast){
-                    $paginationUrls['nextUrl'] = $url . '&' . $this->paginationConfig['starting_after_key'] . '=' . $data[count($data) - 1]->getId();
+                    $paginationUrls['nextUrl'] = $url . '&' . $this->paginationConfig['starting_after_key'] . '=' . $data[count($data) - 1]['id'];
                 }
             }
         }
@@ -319,11 +319,11 @@ class AggregationPaginator
         $countAggregation = array_merge($aggregation,
             [['$sort' => [$orders['order_by'] => $orders['order']]]],
             [['$group' => [
-            '_id' => null,
-            'count' => ['$sum' => 1],
-            'first' => ['$first' => '$$ROOT'],
-            'last' => ['$last' => '$$ROOT']
-        ]]]);
+                '_id' => null,
+                'count' => ['$sum' => 1],
+                'first' => ['$first' => '$$ROOT'],
+                'last' => ['$last' => '$$ROOT']
+            ]]]);
 
 
         $countResult = $this->dm->getDocumentCollection($document)->aggregate($countAggregation)->toArray();
@@ -356,18 +356,21 @@ class AggregationPaginator
 
 
 
-            $orderFunction = ($orders['order'] == 'asc') ? '$gt' : '$lt';
+            $orderFunction = ($orders['order'] == 1) ? '$gt' : '$lt';
 
 
-            $aggregation[] = ['$match' => ['$and' => [
-                ['$or' => [
-                    ['$and' => [
-                        ['$' . $orders['order_by'] => $reflectionSortValue],
-                        [$orderFunction => ['$id', $reflectionIdValue]]
-                    ]],
-                    [$orderFunction => ['$' . $orders['order_by'], $reflectionSortValue]]
-                ]]
-            ]]];
+            $aggregation[] = ['$match' =>
+                ['$and' => [
+                    ['$or' => [
+                        ['$and' => [
+                            [$orders['order_by'] => $reflectionSortValue],
+                            ['id' => [$orderFunction => $reflectionIdValue]]
+                        ]],
+                        [$orders['order_by'] => [$orderFunction => $reflectionSortValue]]
+                    ]
+                    ]
+                ]
+                ]];
 
 //            $qb->addAnd(
 //                $qb->expr()->addOr(
@@ -380,13 +383,14 @@ class AggregationPaginator
 //            );
         }
 
-        // Limit
-        $this->applyLimit($aggregation);
-
         // Apply Sort
         $aggregation[] = ['$sort' => [
             $orders['order_by'] => $orders['order']]
         ];
+
+        // Limit
+        $this->applyLimit($aggregation);
+
 
         $data = $this->dm->getDocumentCollection($document)->aggregate($aggregation)->toArray();
 
