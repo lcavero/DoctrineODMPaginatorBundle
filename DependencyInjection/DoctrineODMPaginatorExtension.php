@@ -31,5 +31,10 @@ class DoctrineODMPaginatorExtension extends Extension
         $definition->replaceArgument(2, $config['sort_options']);
         $definition->replaceArgument(3, $config['pagination_options']);
         $definition->replaceArgument(4, $config['soft_delete_key']);
+
+        $definition2 = $container->getDefinition('LCV\DoctrineODMPaginatorBundle\Pagination\AggregationPaginator');
+        $definition2->replaceArgument(2, $config['sort_options']);
+        $definition2->replaceArgument(3, $config['pagination_options']);
+        $definition2->replaceArgument(4, $config['soft_delete_key']);
     }
 }

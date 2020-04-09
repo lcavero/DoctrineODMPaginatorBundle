@@ -2,3 +2,7 @@ services:
   LCV\DoctrineODMPaginatorBundle\Pagination\Paginator:
     arguments: ["@doctrine_mongodb", "@request_stack", "",
                 "", "", ""]
+
+  LCV\DoctrineODMPaginatorBundle\Pagination\AggregationPaginator:
+    arguments: ["@doctrine_mongodb", "@request_stack", "",
+                "", "", ""]
