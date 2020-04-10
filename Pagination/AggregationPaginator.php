@@ -8,6 +8,7 @@ use Doctrine\ODM\MongoDB\Mapping\ClassMetadata;
 use Doctrine\ODM\MongoDB\MongoDBException;
 use Doctrine\ODM\MongoDB\Query\Builder;
 use LCV\ExceptionPackBundle\Exception\ApiException;
+use MongoDB\BSON\ObjectId;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 
@@ -293,8 +294,6 @@ class AggregationPaginator
      */
     public function paginate($document, $aggregation = [], $availableSortFields = [])
     {
-
-
         $this->configureManager($document);
 
         $metadata = $this->dm->getClassMetadata($document);
@@ -304,11 +303,6 @@ class AggregationPaginator
 
         // Get Skip Data
         $skipData = $this->getSkipData($metadata);
-
-//        // Soft delete
-//        if ($excludeDeleted) {
-//            $qb->addAnd($qb->expr()->field($this->softDeletedKey)->equals(null));
-//        }
 
         // Get Sort Data
         $orders = $this->getSortData(
@@ -371,16 +365,6 @@ class AggregationPaginator
                     ]
                 ]
                 ]];
-
-//            $qb->addAnd(
-//                $qb->expr()->addOr(
-//                    $qb->expr()->addAnd(
-//                        $qb->expr()->field($orders['order_by'])->equals($reflectionSortValue),
-//                        $qb->expr()->field('id')->$orderFunction($reflectionIdValue)
-//                    ),
-//                    $qb->expr()->addAnd($qb->expr()->field($orders['order_by'])->$orderFunction($reflectionSortValue))
-//                )
-//            );
         }
 
         // Apply Sort
