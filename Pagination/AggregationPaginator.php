@@ -100,7 +100,7 @@ class AggregationPaginator
      * @param ClassMetadata $metadata
      * @return array
      */
-    public function getSkipData(ClassMetadata $metadata)
+    public function getSkipData(ClassMetadata $metadata, $aggregation, $aggregationSkipData)
     {
         $entryDocument = null;
 
@@ -116,10 +116,14 @@ class AggregationPaginator
                 $entryDocumentDirection = self::ENDING_BEFORE;
             }
 
-            $entryDocument = $this->dm->find($metadata->getName(), $entryDocumentId);
-            if (!$entryDocument) {
+            $skipAggregation = $aggregationSkipData($aggregation, $entryDocumentId);
+
+            $entryDocumentResult = $this->dm->getDocumentCollection($metadata->getName())->aggregate($skipAggregation)->toArray();
+            if(empty($entryDocumentResult)){
                 throw new ApiException(500, 'lcv.document_not_found', ['id' => $entryDocumentId]);
             }
+
+            $entryDocument = $entryDocumentResult[0];
         } else {
             $entryDocumentDirection = self::NO_SKIP;
         }
@@ -292,7 +296,7 @@ class AggregationPaginator
      * @return array
      * @throws MongoDBException
      */
-    public function paginate($document, $aggregation = [], $availableSortFields = [])
+    public function paginate($document, $aggregation = [], $availableSortFields = [], $aggregationSkipData = null)
     {
         $this->configureManager($document);
 
@@ -302,7 +306,8 @@ class AggregationPaginator
         $reflectionId->setAccessible(true);
 
         // Get Skip Data
-        $skipData = $this->getSkipData($metadata);
+        $skipData = $this->getSkipData($metadata, $aggregation, $aggregationSkipData);
+
 
         // Get Sort Data
         $orders = $this->getSortData(
@@ -322,12 +327,8 @@ class AggregationPaginator
 
         $countResult = $this->dm->getDocumentCollection($document)->aggregate($countAggregation)->toArray();
 
-
         // Total count
         $total = (count($countResult) > 0) ? $countResult[0]['count'] : 0;
-
-        // Get Skip Data
-        $skipData = $this->getSkipData($metadata);
 
         // First and Last documents
         $firstDocument = null;
@@ -340,15 +341,9 @@ class AggregationPaginator
 
         // Skip
         if ($skipData['entryDocumentDirection'] != self::NO_SKIP) {
-            // Reflection OrderBy
-            $reflectionSort = $metadata->getReflectionProperty($orders['order_by']);
-            $reflectionSort->setAccessible(true);
+            $reflectionSortValue = $skipData['entryDocument'][$orders['order_by']];
 
-            $reflectionSortValue = $reflectionSort->getValue($skipData['entryDocument']);
-
-            $reflectionIdValue = $reflectionId->getValue($skipData['entryDocument']);
-
-
+            $reflectionIdValue = $skipData['entryDocument']['id'];
 
             $orderFunction = ($orders['order'] == 1) ? '$gt' : '$lt';
 
