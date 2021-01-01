@@ -91,7 +91,7 @@ class AggregationPaginator
     {
         $limit = $this->request->query->get($this->paginationConfig['limit_key']);
 
-        if ($limit) {
+        if ($limit > 0) {
             $aggregation[] = ['$limit' => intval($limit)];
         }
     }

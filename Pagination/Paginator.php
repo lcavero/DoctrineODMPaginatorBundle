@@ -113,7 +113,7 @@ class Paginator
     {
         $limit = $this->request->query->get($this->paginationConfig['limit_key']);
 
-        if ($limit) {
+        if ($limit > 0) {
             $qb->limit($limit);
         }
     }
